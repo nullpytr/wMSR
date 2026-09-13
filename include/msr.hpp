@@ -1,6 +1,10 @@
 #ifndef MSR_HPP
 #define MSR_HPP
 
+#ifdef __cplusplus
+#define MSR_HPP_CPP_MODE
+#endif
+
 #ifdef MSR_HPP_KERNEL_DRIVER_MODE
 #include <ntddk.h>
 #else
@@ -15,7 +19,7 @@
 #define MSR_DOS_DEVICE_NAME     L"\\DosDevices\\msr"
 #define MSR_WIN32_DEVICE_NAME   L"\\\\.\\msr"
 
-#ifdef __cplusplus
+#ifdef MSR_HPP_CPP_MODE
 namespace msr::detail { // C++ wraps the C API, see below
 #endif
 
@@ -46,7 +50,7 @@ typedef struct _MSR_REQUEST {
 /* -- Userspace API -- */
 #ifndef MSR_HPP_KERNEL_DRIVER_MODE
 
-#ifdef __cplusplus
+#ifdef MSR_HPP_CPP_MODE
 #define MSR_INLINE inline
 #else
 #define MSR_INLINE static inline
@@ -103,7 +107,7 @@ MSR_INLINE BOOL msr_write(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_QUAD value
 #undef MSR_INLINE
 #endif // !MSR_HPP_KERNEL_DRIVER_MODE (USERSPACE - C/++)
 
-#ifdef __cplusplus
+#ifdef MSR_HPP_CPP_MODE
 } // namespace msr::detail
 
 #ifndef MSR_HPP_KERNEL_DRIVER_MODE
@@ -171,6 +175,6 @@ private:
 } // namespace msr
 
 #endif // !MSR_HPP_KERNEL_DRIVER_MODE (USERSPACE - C++)
-#endif // __cplusplus
+#endif // MSR_HPP_CPP_MODE
 
 #endif // MSR_HPP
