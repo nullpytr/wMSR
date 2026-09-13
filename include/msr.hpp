@@ -86,21 +86,21 @@ MSR_INLINE BOOL msr_ioctl(HANDLE device, DWORD const control_code, PMSR_REQUEST 
     );
 }
 
-MSR_INLINE BOOL msr_read(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_QUAD *value) {
+MSR_INLINE BOOL msr_read(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_VALUE *value) {
     MSR_REQUEST request = {
         .msr_no = reg,
         .cpu = cpu
     };
     BOOL result = msr_ioctl(device, IOCTL_READ_MSR, &request);
-    if (result) *value = request.val.q;
+    if (result) value->q = request.val.q;
     return result;
 }
 
-MSR_INLINE BOOL msr_write(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_QUAD value) {
+MSR_INLINE BOOL msr_write(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_VALUE value) {
     MSR_REQUEST request = { 
         .msr_no = reg,
         .cpu = cpu,
-        .val = { .q = value }
+        .val = value
     };
     return msr_ioctl(device, IOCTL_WRITE_MSR, &request);
 }
@@ -122,6 +122,8 @@ namespace msr {
 
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
+
+using value = detail::MSR_VALUE;
 
 class device {
 public:
@@ -152,17 +154,21 @@ public:
         return *this;
     }
 
-    u64 read(u32 const cpu, u32 const reg) const {
-        u64 value;
-        if (!detail::msr_read(m_handle, cpu, reg, &value))
+    msr::value read(u32 const cpu, u32 const reg) const {
+        msr::value val;
+        if (!detail::msr_read(m_handle, cpu, reg, &val))
             error("IOCTL_READ_MSR failed");
 
-        return value;
+        return val;
     }
 
-    void write(u32 const cpu, u32 const reg, u64 const value) const {
-        if (!detail::msr_write(m_handle, cpu, reg, value))
+    void write(u32 const cpu, u32 const reg, msr::value const val) const {
+        if (!detail::msr_write(m_handle, cpu, reg, val))
             error("IOCTL_WRITE_MSR failed");
+    }
+
+    void write(u32 const cpu, u32 const reg, u64 const val) const {
+        write(cpu, reg, { .q = val });
     }
 
 private:
@@ -180,4 +186,5 @@ private:
 #endif // !MSR_HPP_KERNEL_DRIVER_MODE (USERSPACE - C++)
 #endif // MSR_HPP_CPP_MODE
 
+#undef MSR_HPP_CPP_MODE
 #endif // MSR_HPP
