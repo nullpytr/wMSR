@@ -189,6 +189,10 @@ public:
     bool ioctl(msr::ioctl_t control_code, request& req) const {
         return detail::msr_ioctl(m_handle, control_code, &req);
     }
+
+    HANDLE const& handle() const {
+        return m_handle;
+    }
     
 private:
     /* Helpers */
