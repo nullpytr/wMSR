@@ -125,8 +125,21 @@ using u64 = std::uint64_t;
 
 using value = detail::MSR_VALUE;
 
+struct ioctl {
+    static constexpr auto read       { IOCTL_READ_MSR };
+    static constexpr auto write      { IOCTL_WRITE_MSR };
+}
+
 class device {
 public:
+    static constexpr auto type       { MSR_DEVICE_TYPE };
+
+    struct name {
+        static constexpr auto nt     { MSR_NT_DEVICE_NAME };
+        static constexpr auto dos    { MSR_DOS_DEVICE_NAME };
+        static constexpr auto win32  { MSR_WIN32_DEVICE_NAME };
+    };
+
     device() {
         m_handle = detail::msr_open();
             
@@ -183,7 +196,14 @@ private:
 
 } // namespace msr
 
-#endif // !MSR_HPP_KERNEL_DRIVER_MODE (USERSPACE - C++)
+#undef IOCTL_READ_MSR
+#undef IOCTL_WRITE_MSR
+#undef MSR_DEVICE_TYPE
+#undef MSR_NT_DEVICE_NAME
+#undef MSR_DOS_DEVICE_NAME
+#undef MSR_WIN32_DEVICE_NAME
+
+#endif // !MSR_HPP_KERNEL_DRIVER_MODE (USERSPACE - C++ ONLY)
 #endif // MSR_HPP_CPP_MODE
 
 #undef MSR_HPP_CPP_MODE
