@@ -29,8 +29,8 @@ typedef unsigned __int32 MSR_CPU;
 typedef struct _MSR_VALUE {
     union {
         struct {
-            MSR_DOUBLE l;
-            MSR_DOUBLE h;
+            MSR_DOUBLE lo; // EAX
+            MSR_DOUBLE hi; // EDX
         };
         MSR_QUAD q;
     };
