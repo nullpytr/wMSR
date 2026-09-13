@@ -91,9 +91,9 @@ MSR_INLINE BOOL msr_read(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_VALUE *valu
         .msr_no = reg,
         .cpu = cpu
     };
-    BOOL result = msr_ioctl(device, IOCTL_READ_MSR, &request);
-    if (result) value->q = request.val.q;
-    return result;
+    BOOL success = msr_ioctl(device, IOCTL_READ_MSR, &request);
+    if (success) *value = request.val;
+    return success;
 }
 
 MSR_INLINE BOOL msr_write(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_VALUE value) {
@@ -122,6 +122,7 @@ namespace msr {
 
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
+using handle_t = HANDLE;
 using ioctl_t = DWORD;
 
 using value = detail::MSR_VALUE;
@@ -190,7 +191,7 @@ public:
         return detail::msr_ioctl(m_handle, control_code, &req);
     }
 
-    HANDLE const& handle() const {
+    handle_t const& handle() const {
         return m_handle;
     }
     
@@ -201,7 +202,7 @@ private:
     }
 
     /* Members */
-    HANDLE m_handle;
+    handle_t m_handle;
 };
 
 } // namespace msr
