@@ -125,6 +125,7 @@ using u64 = std::uint64_t;
 using ioctl_t = DWORD;
 
 using value = detail::MSR_VALUE;
+using request = detail::MSR_REQUEST;
 
 struct ioctl {
     static constexpr auto read       { ioctl_t(IOCTL_READ_MSR) };
@@ -183,6 +184,10 @@ public:
 
     void write(u32 const cpu, u32 const reg, u64 const val) const {
         write(cpu, reg, { .q = val });
+    }
+
+    bool ioctl(msr::ioctl_t control_code, request& req) const {
+        return detail::msr_ioctl(m_handle, control_code, &req);
     }
     
 private:
