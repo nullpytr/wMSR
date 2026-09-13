@@ -122,13 +122,14 @@ namespace msr {
 
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
+using ioctl_t = DWORD;
 
 using value = detail::MSR_VALUE;
 
 struct ioctl {
-    static constexpr auto read       { IOCTL_READ_MSR };
-    static constexpr auto write      { IOCTL_WRITE_MSR };
-}
+    static constexpr auto read       { ioctl_t(IOCTL_READ_MSR) };
+    static constexpr auto write      { ioctl_t(IOCTL_WRITE_MSR) };
+};
 
 class device {
 public:
@@ -183,7 +184,7 @@ public:
     void write(u32 const cpu, u32 const reg, u64 const val) const {
         write(cpu, reg, { .q = val });
     }
-
+    
 private:
     /* Helpers */
     [[noreturn]] void error(char const* message) const {
