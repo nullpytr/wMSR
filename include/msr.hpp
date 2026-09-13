@@ -110,7 +110,10 @@ MSR_INLINE BOOL msr_write(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_QUAD value
 #ifdef MSR_HPP_CPP_MODE
 } // namespace msr::detail
 
-#ifndef MSR_HPP_KERNEL_DRIVER_MODE
+#ifdef MSR_HPP_KERNEL_DRIVER_MODE
+using namespace msr::detail;
+#else
+
 #include <utility>
 #include <cstdint>
 #include <system_error>
