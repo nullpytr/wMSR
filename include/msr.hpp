@@ -15,6 +15,10 @@
 #define MSR_DOS_DEVICE_NAME     L"\\DosDevices\\msr"
 #define MSR_WIN32_DEVICE_NAME   L"\\\\.\\msr"
 
+#ifdef __cplusplus
+namespace msr::detail { // C++ wraps the C API, see below
+#endif
+
 typedef unsigned __int32 MSR_DOUBLE;
 typedef unsigned __int64 MSR_QUAD;
 typedef unsigned __int32 MSR_NO;
@@ -41,9 +45,9 @@ typedef struct _MSR_REQUEST {
 
 /* -- Userspace API -- */
 #ifndef MSR_HPP_KERNEL_DRIVER_MODE
+
 #ifdef __cplusplus
 #define MSR_INLINE inline
-namespace msr::detail { // C++ wraps the C API with msr::device
 #else
 #define MSR_INLINE static inline
 #endif
@@ -132,6 +136,7 @@ public:
         if (this != &other) {
             if (m_handle != INVALID_HANDLE_VALUE)
                 detail::msr_close(m_handle);
+
             m_handle = std::exchange(other.m_handle, INVALID_HANDLE_VALUE);
         }
         return *this;
@@ -163,6 +168,6 @@ private:
 } // namespace msr
 
 #endif // __cplusplus
-#endif // !MSR_HPP_KERNEL_DRIVER_MODE
+#endif // !MSR_HPP_KERNEL_DRIVER_MODE (USERSPACE MODE)
 
 #endif // MSR_HPP
