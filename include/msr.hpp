@@ -1,6 +1,10 @@
 #ifndef MSR_HPP
 #define MSR_HPP
 
+#ifdef __cplusplus
+#define MSR_HPP_CPP_MODE
+#endif
+
 #ifdef MSR_HPP_KERNEL_DRIVER_MODE
 #include <ntddk.h>
 #else
@@ -15,6 +19,10 @@
 #define MSR_DOS_DEVICE_NAME     L"\\DosDevices\\msr"
 #define MSR_WIN32_DEVICE_NAME   L"\\\\.\\msr"
 
+#ifdef MSR_HPP_CPP_MODE
+namespace msr::detail { // C++ wraps the C API, see below
+#endif
+
 typedef unsigned __int32 MSR_DOUBLE;
 typedef unsigned __int64 MSR_QUAD;
 typedef unsigned __int32 MSR_NO;
@@ -25,8 +33,8 @@ typedef unsigned __int32 MSR_CPU;
 typedef struct _MSR_VALUE {
     union {
         struct {
-            MSR_DOUBLE l;
-            MSR_DOUBLE h;
+            MSR_DOUBLE lo; // EAX
+            MSR_DOUBLE hi; // EDX
         };
         MSR_QUAD q;
     };
@@ -41,9 +49,9 @@ typedef struct _MSR_REQUEST {
 
 /* -- Userspace API -- */
 #ifndef MSR_HPP_KERNEL_DRIVER_MODE
-#ifdef __cplusplus
+
+#ifdef MSR_HPP_CPP_MODE
 #define MSR_INLINE inline
-namespace msr::detail { // C++ wraps the C API with msr::device
 #else
 #define MSR_INLINE static inline
 #endif
@@ -78,27 +86,33 @@ MSR_INLINE BOOL msr_ioctl(HANDLE device, DWORD const control_code, PMSR_REQUEST 
     );
 }
 
-MSR_INLINE BOOL msr_read(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_QUAD *value) {
+MSR_INLINE BOOL msr_read(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_VALUE *value) {
     MSR_REQUEST request = {
         .msr_no = reg,
         .cpu = cpu
     };
     BOOL result = msr_ioctl(device, IOCTL_READ_MSR, &request);
-    if (result) *value = request.val.q;
+    if (result) value->q = request.val.q;
     return result;
 }
 
-MSR_INLINE BOOL msr_write(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_QUAD value) {
+MSR_INLINE BOOL msr_write(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_VALUE value) {
     MSR_REQUEST request = { 
         .msr_no = reg,
         .cpu = cpu,
-        .val = { .q = value }
+        .val = value
     };
     return msr_ioctl(device, IOCTL_WRITE_MSR, &request);
 }
 #undef MSR_INLINE
-#ifdef __cplusplus
+#endif // !MSR_HPP_KERNEL_DRIVER_MODE (USERSPACE - C/++)
+
+#ifdef MSR_HPP_CPP_MODE
 } // namespace msr::detail
+
+#ifdef MSR_HPP_KERNEL_DRIVER_MODE
+using namespace msr::detail;
+#else
 
 #include <utility>
 #include <cstdint>
@@ -108,9 +122,26 @@ namespace msr {
 
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
+using ioctl_t = DWORD;
+
+using value = detail::MSR_VALUE;
+using request = detail::MSR_REQUEST;
+
+struct ioctl {
+    static constexpr auto read       { ioctl_t(IOCTL_READ_MSR) };
+    static constexpr auto write      { ioctl_t(IOCTL_WRITE_MSR) };
+};
 
 class device {
 public:
+    static constexpr auto type       { MSR_DEVICE_TYPE };
+
+    struct name {
+        static constexpr auto nt     { MSR_NT_DEVICE_NAME };
+        static constexpr auto dos    { MSR_DOS_DEVICE_NAME };
+        static constexpr auto win32  { MSR_WIN32_DEVICE_NAME };
+    };
+
     device() {
         m_handle = detail::msr_open();
             
@@ -132,24 +163,37 @@ public:
         if (this != &other) {
             if (m_handle != INVALID_HANDLE_VALUE)
                 detail::msr_close(m_handle);
+
             m_handle = std::exchange(other.m_handle, INVALID_HANDLE_VALUE);
         }
         return *this;
     }
 
-    u64 read(u32 const cpu, u32 const reg) const {
-        u64 value;
-        if (!detail::msr_read(m_handle, cpu, reg, &value))
+    msr::value read(u32 const cpu, u32 const reg) const {
+        msr::value val;
+        if (!detail::msr_read(m_handle, cpu, reg, &val))
             error("IOCTL_READ_MSR failed");
 
-        return value;
+        return val;
     }
 
-    void write(u32 const cpu, u32 const reg, u64 const value) const {
-        if (!detail::msr_write(m_handle, cpu, reg, value))
+    void write(u32 const cpu, u32 const reg, msr::value const val) const {
+        if (!detail::msr_write(m_handle, cpu, reg, val))
             error("IOCTL_WRITE_MSR failed");
     }
 
+    void write(u32 const cpu, u32 const reg, u64 const val) const {
+        write(cpu, reg, { .q = val });
+    }
+
+    bool ioctl(msr::ioctl_t control_code, request& req) const {
+        return detail::msr_ioctl(m_handle, control_code, &req);
+    }
+
+    HANDLE const& handle() const {
+        return m_handle;
+    }
+    
 private:
     /* Helpers */
     [[noreturn]] void error(char const* message) const {
@@ -162,7 +206,15 @@ private:
 
 } // namespace msr
 
-#endif // __cplusplus
-#endif // !MSR_HPP_KERNEL_DRIVER_MODE
+#undef IOCTL_READ_MSR
+#undef IOCTL_WRITE_MSR
+#undef MSR_DEVICE_TYPE
+#undef MSR_NT_DEVICE_NAME
+#undef MSR_DOS_DEVICE_NAME
+#undef MSR_WIN32_DEVICE_NAME
 
+#endif // !MSR_HPP_KERNEL_DRIVER_MODE (USERSPACE - C++ ONLY)
+#endif // MSR_HPP_CPP_MODE
+
+#undef MSR_HPP_CPP_MODE
 #endif // MSR_HPP
