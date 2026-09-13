@@ -101,9 +101,12 @@ MSR_INLINE BOOL msr_write(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_QUAD value
     return msr_ioctl(device, IOCTL_WRITE_MSR, &request);
 }
 #undef MSR_INLINE
+#endif // !MSR_HPP_KERNEL_DRIVER_MODE (USERSPACE - C/++)
+
 #ifdef __cplusplus
 } // namespace msr::detail
 
+#ifndef MSR_HPP_KERNEL_DRIVER_MODE
 #include <utility>
 #include <cstdint>
 #include <system_error>
@@ -167,7 +170,7 @@ private:
 
 } // namespace msr
 
+#endif // !MSR_HPP_KERNEL_DRIVER_MODE (USERSPACE - C++)
 #endif // __cplusplus
-#endif // !MSR_HPP_KERNEL_DRIVER_MODE (USERSPACE MODE)
 
 #endif // MSR_HPP
