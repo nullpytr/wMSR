@@ -1,7 +1,13 @@
 #ifndef MSR_HPP
 #define MSR_HPP
 
-/* config */
+/*  This header can be included as both a
+    - C99 or C++20 userspace header-only library
+    - C99 or C++20 header for the kernel driver (#define MSR_HPP_KERNEL_DRIVER_MODE)
+
+    See config below. */
+
+/* -- config open -- */
 #define CONFIG_CPP defined(__cplusplus)
 #define CONFIG_USERSPACE !defined(MSR_HPP_KERNEL_DRIVER_MODE)
 
@@ -14,19 +20,21 @@
 #if CONFIG_CPP
 #define CONFIG_INLINE inline
 
+// only C++ userspace mode gets detail namespace; 
+// C++ kernel mode does not need it.
 #undef CONFIG_DETAIL_OPEN
 #undef CONFIG_DETAIL_CLOSE
-#define CONFIG_DETAIL_OPEN() namespace msr::detail { // C++ wraps the C userspace API, see below
+#define CONFIG_DETAIL_OPEN() namespace msr::detail {
 #define CONFIG_DETAIL_CLOSE() } // namespace msr::detail
 
-#else
+#else // C
 #define CONFIG_INLINE static inline
 #endif // CONFIG_CPP
 
 #else // MSR_HPP_KERNEL_DRIVER_MODE
 #include <ntddk.h>
 #endif // CONFIG_USERSPACE
-/* -- */
+/* -- config close -- */
 
 
 #define MSR_DEVICE_TYPE 40000
@@ -127,6 +135,7 @@ CONFIG_DETAIL_CLOSE()
 
 namespace msr {
 
+/* promote C types */
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
 using handle_t = HANDLE;
@@ -135,6 +144,7 @@ using ioctl_t = DWORD;
 using value = detail::MSR_VALUE;
 using request = detail::MSR_REQUEST;
 
+/* promote C defines to static constexpr constants */
 struct ioctl {
     static constexpr auto read       { ioctl_t(IOCTL_READ_MSR) };
     static constexpr auto write      { ioctl_t(IOCTL_WRITE_MSR) };
@@ -214,6 +224,7 @@ private:
 
 } // namespace msr
 
+/* erase C defines */
 #undef IOCTL_READ_MSR
 #undef IOCTL_WRITE_MSR
 #undef MSR_DEVICE_TYPE
@@ -224,7 +235,7 @@ private:
 
 #endif // CONFIG_USERSPACE
 
-/* undef config */
+/* erase config */
 #undef CONFIG_CPP
 #undef CONFIG_USERSPACE
 #undef CONFIG_DETAIL_OPEN
