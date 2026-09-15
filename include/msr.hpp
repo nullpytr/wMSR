@@ -160,43 +160,41 @@ public:
         static constexpr auto win32  { MSR_WIN32_DEVICE_NAME };
     };
 
-    device() {
-        m_handle = detail::msr_open();
-            
-        if (m_handle == INVALID_HANDLE_VALUE)
+    device() : handle(detail::msr_open()) {
+        if (handle.invalid()) 
             error("Failed to open MSR device");
     }
 
     ~device() {
-        if (m_handle != INVALID_HANDLE_VALUE)
-            detail::msr_close(m_handle);
+        if (handle.valid())
+            detail::msr_close(handle.value);
     }
 
     device(device const&) = delete;
     device& operator=(device const&) = delete;
 
-    device(device&& other) noexcept : m_handle(std::exchange(other.m_handle, INVALID_HANDLE_VALUE)) {}
+    device(device&& other) noexcept : handle(other.handle.pop()) {}
 
     device& operator=(device&& other) noexcept {
         if (this != &other) {
-            if (m_handle != INVALID_HANDLE_VALUE)
-                detail::msr_close(m_handle);
+            if (handle.valid())
+                detail::msr_close(handle.value);
 
-            m_handle = std::exchange(other.m_handle, INVALID_HANDLE_VALUE);
+            handle.value = other.handle.pop();
         }
         return *this;
     }
 
     msr::value read(u32 const cpu, u32 const reg) const {
         msr::value val;
-        if (!detail::msr_read(m_handle, cpu, reg, &val))
+        if (!detail::msr_read(handle.value, cpu, reg, &val))
             error("IOCTL_READ_MSR failed");
 
         return val;
     }
 
     void write(u32 const cpu, u32 const reg, msr::value const val) const {
-        if (!detail::msr_write(m_handle, cpu, reg, val))
+        if (!detail::msr_write(handle.value, cpu, reg, val))
             error("IOCTL_WRITE_MSR failed");
     }
 
@@ -205,21 +203,34 @@ public:
     }
 
     bool ioctl(msr::ioctl_t control_code, request& req) const {
-        return detail::msr_ioctl(m_handle, control_code, &req);
+        return detail::msr_ioctl(handle.value, control_code, &req);
     }
 
-    handle_t const& handle() const {
-        return m_handle;
-    }
+    /* Handle */
+    struct handle {
+        handle(handle_t value) : value(value) {}
+        handle(handle const&) = delete;
+        handle& operator=(handle const&) = delete;
+
+        handle_t const& get()        const { return value; }
+        handle_t const& operator*()  const { return get(); }
+        handle_t const& operator()() const { return get(); }
+
+        bool invalid()  const { return value == INVALID_HANDLE_VALUE; }
+        bool valid()    const { return !invalid(); }
+        
+    private:
+        handle_t pop()  { return std::exchange(value, INVALID_HANDLE_VALUE); }
+        handle_t value;
+    
+    friend class device; // owner
+    } handle;
     
 private:
     /* Helpers */
     [[noreturn]] void error(char const* message) const {
         throw std::system_error(GetLastError(), std::system_category(), message);
     }
-
-    /* Members */
-    handle_t m_handle;
 };
 
 } // namespace msr
