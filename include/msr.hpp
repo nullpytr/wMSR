@@ -1,15 +1,33 @@
 #ifndef MSR_HPP
 #define MSR_HPP
 
-#ifdef __cplusplus
-#define MSR_HPP_CPP_MODE
-#endif
+/* config */
+#define CONFIG_CPP defined(__cplusplus)
+#define CONFIG_USERSPACE !defined(MSR_HPP_KERNEL_DRIVER_MODE)
 
-#ifdef MSR_HPP_KERNEL_DRIVER_MODE
-#include <ntddk.h>
-#else
+#define CONFIG_DETAIL_OPEN()
+#define CONFIG_DETAIL_CLOSE()
+
+#if CONFIG_USERSPACE
 #include <windows.h>
-#endif
+
+#if CONFIG_CPP
+#define CONFIG_INLINE inline
+
+#undef CONFIG_DETAIL_OPEN
+#undef CONFIG_DETAIL_CLOSE
+#define CONFIG_DETAIL_OPEN() namespace msr::detail { // C++ wraps the C userspace API, see below
+#define CONFIG_DETAIL_CLOSE() } // namespace msr::detail
+
+#else
+#define CONFIG_INLINE static inline
+#endif // CONFIG_CPP
+
+#else // MSR_HPP_KERNEL_DRIVER_MODE
+#include <ntddk.h>
+#endif // CONFIG_USERSPACE
+/* -- */
+
 
 #define MSR_DEVICE_TYPE 40000
 #define IOCTL_READ_MSR  CTL_CODE(MSR_DEVICE_TYPE, 0x800, METHOD_BUFFERED, FILE_READ_ACCESS)
@@ -19,9 +37,7 @@
 #define MSR_DOS_DEVICE_NAME     L"\\DosDevices\\msr"
 #define MSR_WIN32_DEVICE_NAME   L"\\\\.\\msr"
 
-#ifdef MSR_HPP_CPP_MODE
-namespace msr::detail { // C++ wraps the C API, see below
-#endif
+CONFIG_DETAIL_OPEN()
 
 typedef unsigned __int32 MSR_DOUBLE;
 typedef unsigned __int64 MSR_QUAD;
@@ -48,15 +64,9 @@ typedef struct _MSR_REQUEST {
 } MSR_REQUEST, *PMSR_REQUEST;
 
 /* -- Userspace API -- */
-#ifndef MSR_HPP_KERNEL_DRIVER_MODE
+#if CONFIG_USERSPACE
 
-#ifdef MSR_HPP_CPP_MODE
-#define MSR_INLINE inline
-#else
-#define MSR_INLINE static inline
-#endif
-
-MSR_INLINE HANDLE msr_open(void) {
+CONFIG_INLINE HANDLE msr_open(void) {
     return CreateFileW(
         /* [in] lpFileName            */ MSR_WIN32_DEVICE_NAME,
         /* [in] dwDesiredAccess       */ GENERIC_READ | GENERIC_WRITE,
@@ -68,11 +78,11 @@ MSR_INLINE HANDLE msr_open(void) {
     );
 }
 
-MSR_INLINE void msr_close(HANDLE device) {
+CONFIG_INLINE void msr_close(HANDLE device) {
     CloseHandle(device);
 }
 
-MSR_INLINE BOOL msr_ioctl(HANDLE device, DWORD const control_code, PMSR_REQUEST request) {
+CONFIG_INLINE BOOL msr_ioctl(HANDLE device, DWORD const control_code, PMSR_REQUEST request) {
     DWORD bytes_returned;
     return DeviceIoControl(
         /* [in ] hDevice          */ device,
@@ -86,7 +96,7 @@ MSR_INLINE BOOL msr_ioctl(HANDLE device, DWORD const control_code, PMSR_REQUEST 
     );
 }
 
-MSR_INLINE BOOL msr_read(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_VALUE *value) {
+CONFIG_INLINE BOOL msr_read(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_VALUE *value) {
     MSR_REQUEST request = {
         .msr_no = reg,
         .cpu = cpu
@@ -96,7 +106,7 @@ MSR_INLINE BOOL msr_read(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_VALUE *valu
     return success;
 }
 
-MSR_INLINE BOOL msr_write(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_VALUE value) {
+CONFIG_INLINE BOOL msr_write(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_VALUE value) {
     MSR_REQUEST request = { 
         .msr_no = reg,
         .cpu = cpu,
@@ -104,15 +114,12 @@ MSR_INLINE BOOL msr_write(HANDLE device, MSR_CPU cpu, MSR_NO reg, MSR_VALUE valu
     };
     return msr_ioctl(device, IOCTL_WRITE_MSR, &request);
 }
-#undef MSR_INLINE
-#endif // !MSR_HPP_KERNEL_DRIVER_MODE (USERSPACE - C/++)
 
-#ifdef MSR_HPP_CPP_MODE
-} // namespace msr::detail
+#undef CONFIG_INLINE
+CONFIG_DETAIL_CLOSE()
 
-#ifdef MSR_HPP_KERNEL_DRIVER_MODE
-using namespace msr::detail;
-#else
+/* -- C++ Userspace API -- */
+#if CONFIG_CPP
 
 #include <utility>
 #include <cstdint>
@@ -213,9 +220,15 @@ private:
 #undef MSR_NT_DEVICE_NAME
 #undef MSR_DOS_DEVICE_NAME
 #undef MSR_WIN32_DEVICE_NAME
+#endif // CONFIG_CPP
 
-#endif // !MSR_HPP_KERNEL_DRIVER_MODE (USERSPACE - C++ ONLY)
-#endif // MSR_HPP_CPP_MODE
+#endif // CONFIG_USERSPACE
 
-#undef MSR_HPP_CPP_MODE
+/* undef config */
+#undef CONFIG_CPP
+#undef CONFIG_USERSPACE
+#undef CONFIG_DETAIL_OPEN
+#undef CONFIG_DETAIL_CLOSE
+/* -- */
+
 #endif // MSR_HPP
